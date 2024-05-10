@@ -76,7 +76,7 @@ exports.secureStringify = function(obj, encrypt_key, validate_key) {
   // Do we need some timestamp to invalidate too old data?
   var nonce_check = randomString(48); // 8 chars
   var nonce_crypt = randomString(48); // 8 chars
-  var cypher = crypto.createCipher(CYPHER, encrypt_key + nonce_crypt);
+  var cypher = crypto.createCipheriv(CYPHER, encrypt_key + nonce_crypt, nonce_crypt + nonce_crypt);
   var data = JSON.stringify(obj);
   var res = cypher.update(nonce_check, DATA_ENCODING, CODE_ENCODING);
   res += cypher.update(data, DATA_ENCODING, CODE_ENCODING);
@@ -92,7 +92,7 @@ exports.secureParse = function(str, encrypt_key, validate_key) {
   var expected_digest = str.substring(0, 28);
   var nonce_crypt = str.substring(28, 36);
   var encrypted_data = str.substring(36, str.length);
-  var decypher = crypto.createDecipher(CYPHER, encrypt_key + nonce_crypt);
+  var decypher = crypto.createDecipheriv(CYPHER, encrypt_key + nonce_crypt, nonce_crypt + nonce_crypt);
   var data = decypher.update(encrypted_data, CODE_ENCODING, DATA_ENCODING);
   data += decypher.final(DATA_ENCODING);
   var nonce_check = data.substring(0, 8);
@@ -106,7 +106,7 @@ exports.secureParse = function(str, encrypt_key, validate_key) {
  * Class to store encryption/validation keys in a more convenient way.
  */
 function SecureSerializer(encrypt_key, validate_key) {
-  this.encrypt_key = encrypt_key;
+  this.encrypt_key = crypto.createHash('sha256').update(encrypt_key).digest('hex').slice(0, 24);
   this.validate_key = validate_key;
 };
 
@@ -118,6 +118,13 @@ SecureSerializer.prototype = {
     return exports.secureParse(str, this.encrypt_key, this.validate_key);
   }
 };
+
+// const s = new SecureSerializer('hello', 'xxx')
+// const data = {a: 1}
+// console.log(data)
+// const hash = s.stringify(data)
+// console.log(hash)
+// console.log(s.parse(hash))
 
 exports.createSecureSerializer = function(encrypt_key, validate_key) {
   return new SecureSerializer(encrypt_key, validate_key);
